@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { supabase } from "./supabaseClient";
 
 const SCREENS = { AUTH:"auth", DISCOVER:"discover", PROFILE:"profile", MESSAGES:"messages", CHAT:"chat", CALENDAR:"calendar", MY_PROFILE:"my_profile", EDIT_PROFILE:"edit_profile" };
 const ACTIVITIES = ["☕ Coffee","🎬 Movie","🍕 Dinner","🏞️ Hike","🎨 Gallery","🎳 Bowling","🎭 Theatre","🍦 Ice Cream","🎮 Arcade","📚 Bookstore"];
@@ -121,8 +122,11 @@ function ProfileCard({ profile, onClick, dateMode }) {
   );
 }
 
-function AuthScreen({ onLogin }) {
+function AuthScreen({ onLogin, onSignUp }) {
   const [mode, setMode] = useState("login");
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const inp = { width:"100%", padding:"12px 14px", borderRadius:12, border:"1.5px solid #f0c49a", fontSize:15, fontFamily:"Georgia,serif", background:"#fffaf5", color:"#3d1f00", outline:"none", boxSizing:"border-box", marginBottom:12 };
   return (
     <div style={{ minHeight:"100vh", background:"linear-gradient(160deg,#fff5eb,#ffe8cc,#ffd4a8)", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:24, fontFamily:"Georgia,serif" }}>
@@ -133,11 +137,33 @@ function AuthScreen({ onLogin }) {
         <div style={{ display:"flex", background:"#fff5ec", borderRadius:12, marginBottom:22, padding:3 }}>
           {["login","signup"].map(m=><button key={m} onClick={()=>setMode(m)} style={{ flex:1, padding:"9px 0", borderRadius:10, border:"none", background:mode===m?"#e87c3e":"transparent", color:mode===m?"#fff":"#c07040", fontFamily:"Georgia,serif", fontSize:14, fontWeight:mode===m?700:400, cursor:"pointer" }}>{m==="login"?"Sign In":"Create Account"}</button>)}
         </div>
-        {mode==="signup" && <input style={inp} placeholder="Your first name" />}
-        <input style={inp} placeholder="Email address" type="email" />
-        <input style={inp} placeholder="Password" type="password" />
-        <button onClick={onLogin} style={{ width:"100%", padding:14, borderRadius:12, border:"none", background:"linear-gradient(135deg,#e87c3e,#d45a1e)", color:"#fff", fontSize:16, fontFamily:"'Playfair Display',Georgia,serif", fontWeight:700, cursor:"pointer" }}>
-          {mode==="login"?"Welcome Back →":"Start Dating →"}
+                {mode==="signup" && (
+          <input
+            style={inp}
+            placeholder="Your first name"
+            value={fullName}
+            onChange={e=>setFullName(e.target.value)}
+          />
+        )}
+        <input
+          style={inp}
+          placeholder="Email address"
+          type="email"
+          value={email}
+          onChange={e=>setEmail(e.target.value)}
+        />
+        <input
+          style={inp}
+          placeholder="Password"
+          type="password"
+          value={password}
+          onChange={e=>setPassword(e.target.value)}
+        />
+        <button
+          onClick={mode==="login" ? onLogin : () => onSignUp(email, password, fullName)}
+          style={{ width:"100%", padding:14, borderRadius:12, border:"none", background:"linear-gradient(135deg,#e87c3e,#d45a1e)", color:"#fff", fontSize:16, fontFamily:"'Playfair Display',Georgia,serif", fontWeight:700, cursor:"pointer" }}
+        >
+          {mode==="login"?"Welcome Back ???":"Start Dating ???"}
         </button>
         <p style={{ textAlign:"center", fontSize:12, color:"#c09070", marginTop:14 }}>Free forever · Supported by local ads</p>
       </div>
@@ -549,10 +575,39 @@ export default function App() {
   const [viewProfile, setViewProfile] = useState(null);
   const [chatWith, setChatWith] = useState(null);
   const [dateMode, setDateMode] = useState("book");
+
+  const handleSignUp = async (email, password, fullName) => {
+    // 1. Create the user in Supabase Auth
+    const { data, error: authError } = await supabase.auth.signUp({
+      email,
+      password,
+    });
+
+    if (authError) {
+      alert(authError.message);
+      return;
+    }
+
+    // 2. If auth is successful, create their record in your 'profiles' table
+    if (data.user) {
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .insert([
+          { id: data.user.id, name: fullName }
+        ]);
+
+      if (profileError) {
+        console.error("Profile Error:", profileError.message);
+      } else {
+        alert("Registration successful! Check your email.");
+      }
+    }
+  };
+
   return (
     <div style={{ fontFamily:"Georgia,serif", maxWidth:430, margin:"0 auto", minHeight:"100vh", background:"#fffaf5", position:"relative", overflowX:"hidden" }}>
       <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&display=swap" rel="stylesheet" />
-      {screen===SCREENS.AUTH       && <AuthScreen onLogin={()=>setScreen(SCREENS.DISCOVER)} />}
+      {screen===SCREENS.AUTH       && <AuthScreen onLogin={()=>setScreen(SCREENS.DISCOVER)} onSignUp={handleSignUp} />}
       {screen===SCREENS.DISCOVER   && <DiscoverScreen setScreen={setScreen} setViewProfile={setViewProfile} dateMode={dateMode} setDateMode={setDateMode} />}
       {screen===SCREENS.PROFILE    && <ProfileScreen profile={viewProfile} setScreen={setScreen} dateMode={dateMode} />}
       {screen===SCREENS.MESSAGES   && <MessagesScreen setScreen={setScreen} setChatWith={setChatWith} dateMode={dateMode} />}
