@@ -1,5 +1,5 @@
-import { useState, useRef } from "react";
-import { supabase } from "./supabaseClient";
+import { useState, useRef, useEffect } from "react";
+import { supabase } from './supabaseClient';
 
 const SCREENS = { AUTH:"auth", DISCOVER:"discover", PROFILE:"profile", MESSAGES:"messages", CHAT:"chat", CALENDAR:"calendar", MY_PROFILE:"my_profile", EDIT_PROFILE:"edit_profile" };
 const ACTIVITIES = ["☕ Coffee","🎬 Movie","🍕 Dinner","🏞️ Hike","🎨 Gallery","🎳 Bowling","🎭 Theatre","🍦 Ice Cream","🎮 Arcade","📚 Bookstore"];
@@ -122,50 +122,98 @@ function ProfileCard({ profile, onClick, dateMode }) {
   );
 }
 
-function AuthScreen({ onLogin, onSignUp }) {
+function AuthScreen({ onLogin }) {
   const [mode, setMode] = useState("login");
-  const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const inp = { width:"100%", padding:"12px 14px", borderRadius:12, border:"1.5px solid #f0c49a", fontSize:15, fontFamily:"Georgia,serif", background:"#fffaf5", color:"#3d1f00", outline:"none", boxSizing:"border-box", marginBottom:12 };
+  const [name, setName] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const inp = {
+    width:"100%", padding:"12px 14px", borderRadius:12,
+    border:"1.5px solid #f0c49a", fontSize:15, fontFamily:"Georgia,serif",
+    background:"#fffaf5", color:"#3d1f00", outline:"none",
+    boxSizing:"border-box", marginBottom:12
+  };
+
+  const handleAuth = async () => {
+    setError("");
+    setLoading(true);
+
+    if (!email || !password) {
+      setError("Please enter your email and password.");
+      setLoading(false);
+      return;
+    }
+
+    if (mode === "signup") {
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email: email.trim(),
+        password: password,
+        options: { data: { name: name } }
+      });
+      if (signUpError) {
+        setError(signUpError.message);
+        setLoading(false);
+        return;
+      }
+      if (data.user) {
+        await supabase.from('profiles').insert({
+          id: data.user.id,
+          name: name || "New User",
+          age: 25,
+          bio: "",
+          hourly_rate: 300,
+          mode: "book",
+        });
+      }
+      setError("? Account created! Now sign in below.");
+      setMode("login");
+      setLoading(false);
+
+    } else {
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password: password,
+      });
+      if (signInError) {
+        setError(signInError.message);
+        setLoading(false);
+        return;
+      }
+      setLoading(false);
+      onLogin(data.user);
+    }
+  };
+
   return (
     <div style={{ minHeight:"100vh", background:"linear-gradient(160deg,#fff5eb,#ffe8cc,#ffd4a8)", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:24, fontFamily:"Georgia,serif" }}>
-      <div style={{ fontSize:48, marginBottom:8 }}>🌅</div>
+      <div style={{ fontSize:48, marginBottom:8 }}>??</div>
       <h1 style={{ fontFamily:"'Playfair Display',Georgia,serif", fontSize:38, color:"#3d1f00", margin:0, letterSpacing:-1 }}>DateOut</h1>
-      <p style={{ color:"#c07040", marginBottom:32, fontSize:15, textAlign:"center" }}>Go on dates · Book dates · Get paid</p>
+      <p style={{ color:"#c07040", marginBottom:32, fontSize:15, textAlign:"center" }}>Go on dates ? Book dates ? Get paid</p>
       <div style={{ background:"#fff", borderRadius:24, padding:"32px 28px", width:"100%", maxWidth:380, boxShadow:"0 8px 48px rgba(180,80,10,0.13)" }}>
         <div style={{ display:"flex", background:"#fff5ec", borderRadius:12, marginBottom:22, padding:3 }}>
-          {["login","signup"].map(m=><button key={m} onClick={()=>setMode(m)} style={{ flex:1, padding:"9px 0", borderRadius:10, border:"none", background:mode===m?"#e87c3e":"transparent", color:mode===m?"#fff":"#c07040", fontFamily:"Georgia,serif", fontSize:14, fontWeight:mode===m?700:400, cursor:"pointer" }}>{m==="login"?"Sign In":"Create Account"}</button>)}
+          {["login","signup"].map(m=>(
+            <button key={m} onClick={()=>{ setMode(m); setError(""); }} style={{ flex:1, padding:"9px 0", borderRadius:10, border:"none", background:mode===m?"#e87c3e":"transparent", color:mode===m?"#fff":"#c07040", fontFamily:"Georgia,serif", fontSize:14, fontWeight:mode===m?700:400, cursor:"pointer" }}>
+              {m==="login"?"Sign In":"Create Account"}
+            </button>
+          ))}
         </div>
-                {mode==="signup" && (
-          <input
-            style={inp}
-            placeholder="Your first name"
-            value={fullName}
-            onChange={e=>setFullName(e.target.value)}
-          />
+        {mode==="signup" && (
+          <input style={inp} placeholder="Your first name" value={name} onChange={e=>setName(e.target.value)} />
         )}
-        <input
-          style={inp}
-          placeholder="Email address"
-          type="email"
-          value={email}
-          onChange={e=>setEmail(e.target.value)}
-        />
-        <input
-          style={inp}
-          placeholder="Password"
-          type="password"
-          value={password}
-          onChange={e=>setPassword(e.target.value)}
-        />
-        <button
-          onClick={mode==="login" ? onLogin : () => onSignUp(email, password, fullName)}
-          style={{ width:"100%", padding:14, borderRadius:12, border:"none", background:"linear-gradient(135deg,#e87c3e,#d45a1e)", color:"#fff", fontSize:16, fontFamily:"'Playfair Display',Georgia,serif", fontWeight:700, cursor:"pointer" }}
-        >
-          {mode==="login"?"Welcome Back ???":"Start Dating ???"}
+        <input style={inp} placeholder="Email address" type="email" value={email} onChange={e=>setEmail(e.target.value)} />
+        <input style={inp} placeholder="Password (min 6 characters)" type="password" value={password} onChange={e=>setPassword(e.target.value)} />
+        {error && (
+          <div style={{ background:error.startsWith("?")?"#e8f5e9":"#fff0f0", border:`1px solid ${error.startsWith("?")?"#a5d6a7":"#ffcdd2"}`, borderRadius:10, padding:"10px 14px", fontSize:13, color:error.startsWith("?")?"#2e7d32":"#c62828", marginBottom:14 }}>
+            {error}
+          </div>
+        )}
+        <button onClick={handleAuth} disabled={loading} style={{ width:"100%", padding:14, borderRadius:12, border:"none", background:loading?"#ccc":"linear-gradient(135deg,#e87c3e,#d45a1e)", color:"#fff", fontSize:16, fontFamily:"'Playfair Display',Georgia,serif", fontWeight:700, cursor:loading?"not-allowed":"pointer" }}>
+          {loading?"Please wait...":mode==="login"?"Welcome Back ?":"Start Dating ?"}
         </button>
-        <p style={{ textAlign:"center", fontSize:12, color:"#c09070", marginTop:14 }}>Free forever · Supported by local ads</p>
+        <p style={{ textAlign:"center", fontSize:12, color:"#c09070", marginTop:14 }}>Free forever ? Supported by local ads</p>
       </div>
       <AdBanner idx={0} />
     </div>
@@ -442,7 +490,7 @@ function CalendarScreen({ setScreen, dateMode }) {
   );
 }
 
-function MyProfileScreen({ setScreen, dateMode, setDateMode }) {
+function MyProfileScreen({ setScreen, dateMode, setDateMode, handleLogout }) {
   const cfg = MODE[dateMode];
   return (
     <div style={{ paddingBottom:80 }}>
@@ -487,6 +535,22 @@ function MyProfileScreen({ setScreen, dateMode, setDateMode }) {
           </div>
         </div>
         <AdBanner idx={2} />
+        <button
+          onClick={handleLogout}
+          style={{
+            width: "100%",
+            padding: 14,
+            marginTop: 20,
+            borderRadius: 12,
+            background: "#fee2e2",
+            color: "#ef4444",
+            border: "none",
+            fontWeight: "bold",
+            cursor: "pointer"
+          }}
+        >
+          Logout from App
+        </button>
       </div>
     </div>
   );
@@ -575,47 +639,44 @@ export default function App() {
   const [viewProfile, setViewProfile] = useState(null);
   const [chatWith, setChatWith] = useState(null);
   const [dateMode, setDateMode] = useState("book");
+  const [currentUser, setCurrentUser] = useState(null);
 
-  const handleSignUp = async (email, password, fullName) => {
-    // 1. Create the user in Supabase Auth
-    const { data, error: authError } = await supabase.auth.signUp({
-      email,
-      password,
+  // Check if user is already logged in when app loads
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        setCurrentUser(session.user);
+        setScreen(SCREENS.DISCOVER);
+      }
     });
 
-    if (authError) {
-      alert(authError.message);
-      return;
-    }
+    // Listen for changes (Sign in / Sign out)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setCurrentUser(session?.user ?? null);
+      if (!session) setScreen(SCREENS.AUTH);
+    });
 
-    // 2. If auth is successful, create their record in your 'profiles' table
-    if (data.user) {
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .insert([
-          { id: data.user.id, name: fullName }
-        ]);
+    return () => subscription.unsubscribe();
+  }, []);
 
-      if (profileError) {
-        console.error("Profile Error:", profileError.message);
-      } else {
-        alert("Registration successful! Check your email.");
-      }
-    }
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setCurrentUser(null);
+    setScreen(SCREENS.AUTH);
   };
 
   return (
     <div style={{ fontFamily:"Georgia,serif", maxWidth:430, margin:"0 auto", minHeight:"100vh", background:"#fffaf5", position:"relative", overflowX:"hidden" }}>
       <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&display=swap" rel="stylesheet" />
-      {screen===SCREENS.AUTH       && <AuthScreen onLogin={()=>setScreen(SCREENS.DISCOVER)} onSignUp={handleSignUp} />}
-      {screen===SCREENS.DISCOVER   && <DiscoverScreen setScreen={setScreen} setViewProfile={setViewProfile} dateMode={dateMode} setDateMode={setDateMode} />}
-      {screen===SCREENS.PROFILE    && <ProfileScreen profile={viewProfile} setScreen={setScreen} dateMode={dateMode} />}
-      {screen===SCREENS.MESSAGES   && <MessagesScreen setScreen={setScreen} setChatWith={setChatWith} dateMode={dateMode} />}
-      {screen===SCREENS.CHAT       && <ChatScreen profile={chatWith||MOCK_PROFILES[0]} setScreen={setScreen} dateMode={dateMode} />}
-      {screen===SCREENS.CALENDAR   && <CalendarScreen setScreen={setScreen} dateMode={dateMode} />}
-      {screen===SCREENS.MY_PROFILE && <MyProfileScreen setScreen={setScreen} dateMode={dateMode} setDateMode={setDateMode} />}
+      {screen===SCREENS.AUTH        && <AuthScreen onLogin={(user) => { setCurrentUser(user); setScreen(SCREENS.DISCOVER); }} />}
+      {screen===SCREENS.DISCOVER    && <DiscoverScreen setScreen={setScreen} setViewProfile={setViewProfile} dateMode={dateMode} setDateMode={setDateMode} />}
+      {screen===SCREENS.PROFILE     && <ProfileScreen profile={viewProfile} setScreen={setScreen} dateMode={dateMode} />}
+      {screen===SCREENS.MESSAGES    && <MessagesScreen setScreen={setScreen} setChatWith={setChatWith} dateMode={dateMode} />}
+      {screen===SCREENS.CHAT        && <ChatScreen profile={chatWith||MOCK_PROFILES[0]} setScreen={setScreen} dateMode={dateMode} />}
+      {screen===SCREENS.CALENDAR    && <CalendarScreen setScreen={setScreen} dateMode={dateMode} />}
+      {screen===SCREENS.MY_PROFILE  && <MyProfileScreen setScreen={setScreen} dateMode={dateMode} setDateMode={setDateMode} handleLogout={handleLogout} currentUser={currentUser} />}
       {screen===SCREENS.EDIT_PROFILE && <EditProfileScreen setScreen={setScreen} dateMode={dateMode} setDateMode={setDateMode} />}
       <BottomNav screen={screen} setScreen={setScreen} dateMode={dateMode} />
     </div>
   );
-} 
+}
