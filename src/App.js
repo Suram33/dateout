@@ -490,16 +490,36 @@ function CalendarScreen({ setScreen, dateMode }) {
   );
 }
 
-function MyProfileScreen({ setScreen, dateMode, setDateMode, handleLogout }) {
+function MyProfileScreen({ setScreen, dateMode, setDateMode, currentUser }) {
   const cfg = MODE[dateMode];
+  const [profile, setProfile] = useState(null);
+
+  // Load real profile from Supabase when screen opens
+  useEffect(() => {
+    if (!currentUser) return;
+    supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', currentUser.id)
+      .single()
+      .then(({ data }) => {
+        if (data) setProfile(data);
+      });
+  }, [currentUser]);
+
+  const displayName = profile?.name || currentUser?.email?.split('@')[0] || "You";
+  const displayAge = profile?.age || "";
+  const displayBio = profile?.bio || "No bio yet ? tap Edit to add one!";
+  const displayRate = profile?.hourly_rate || 300;
+
   return (
     <div style={{ paddingBottom:80 }}>
       <div style={{ height:140, background:"linear-gradient(160deg,#f9e4cc,#f0c08a)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:70, position:"relative" }}>
-        🌟
-        <button onClick={()=>setScreen(SCREENS.DISCOVER)} style={{ position:"absolute", top:18, left:18, background:"rgba(255,255,255,0.85)", border:"none", borderRadius:"50%", width:38, height:38, fontSize:18, cursor:"pointer" }}>←</button>
+        ??
+        <button onClick={()=>setScreen(SCREENS.DISCOVER)} style={{ position:"absolute", top:18, left:18, background:"rgba(255,255,255,0.85)", border:"none", borderRadius:"50%", width:38, height:38, fontSize:18, cursor:"pointer" }}>?</button>
       </div>
       <div style={{ padding:"20px 20px" }}>
-        {/* Big mode switcher */}
+        {/* Mode switcher */}
         <div style={{ background:"#fff", borderRadius:20, padding:18, border:`2px solid ${cfg.color}60`, marginBottom:20, boxShadow:`0 4px 20px ${cfg.color}20` }}>
           <p style={{ margin:"0 0 12px", fontSize:12, color:"#8a6040", fontWeight:700, textAlign:"center", letterSpacing:1 }}>YOUR MODE</p>
           <div style={{ display:"flex", justifyContent:"center", marginBottom:14 }}>
@@ -507,64 +527,94 @@ function MyProfileScreen({ setScreen, dateMode, setDateMode, handleLogout }) {
           </div>
           <div style={{ background:cfg.tagBg, borderRadius:12, padding:"12px 14px", border:`1px solid ${cfg.tagBorder}` }}>
             {dateMode==="go"
-              ? <p style={{ margin:0, fontSize:13, color:cfg.color, textAlign:"center", lineHeight:1.6 }}>💃 <strong>Go on a Date</strong><br/><span style={{ color:"#8a6040" }}>You appear to people looking to book someone. Set your hourly rate & availability below.</span></p>
-              : <p style={{ margin:0, fontSize:13, color:cfg.color, textAlign:"center", lineHeight:1.6 }}>🕵️ <strong>Book a Date</strong><br/><span style={{ color:"#8a6040" }}>You browse companions & pay for dates. Your profile is hidden from the bookings feed.</span></p>
+              ? <p style={{ margin:0, fontSize:13, color:cfg.color, textAlign:"center", lineHeight:1.6 }}>?? <strong>Go on a Date</strong><br/><span style={{ color:"#8a6040" }}>You appear to people looking to book someone.</span></p>
+              : <p style={{ margin:0, fontSize:13, color:cfg.color, textAlign:"center", lineHeight:1.6 }}>??? <strong>Book a Date</strong><br/><span style={{ color:"#8a6040" }}>You browse companions and pay for dates.</span></p>
             }
           </div>
         </div>
 
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:4 }}>
           <div>
-            <h2 style={{ fontFamily:"'Playfair Display',Georgia,serif", fontSize:26, color:"#3d1f00", margin:0 }}>Alex, 28</h2>
-            <p style={{ color:"#c07040", fontSize:13, margin:"4px 0 8px" }}>📍 Warangal, Telangana</p>
-            {dateMode==="go" && <span style={{ background:cfg.gradient, color:"#fff", borderRadius:20, padding:"5px 14px", fontSize:15, fontWeight:700, fontFamily:"'Playfair Display',Georgia,serif" }}>₹400 / hour</span>}
+            {/* ? NOW SHOWS REAL NAME */}
+            <h2 style={{ fontFamily:"'Playfair Display',Georgia,serif", fontSize:26, color:"#3d1f00", margin:0 }}>
+              {displayName}{displayAge ? `, ${displayAge}` : ""}
+            </h2>
+            <p style={{ color:"#c07040", fontSize:13, margin:"4px 0 8px" }}>?? Warangal, Telangana</p>
+            {dateMode==="go" && (
+              <span style={{ background:cfg.gradient, color:"#fff", borderRadius:20, padding:"5px 14px", fontSize:15, fontWeight:700, fontFamily:"'Playfair Display',Georgia,serif" }}>
+                ?{displayRate} / hour
+              </span>
+            )}
           </div>
-          <button onClick={()=>setScreen(SCREENS.EDIT_PROFILE)} style={{ background:"#fff5ec", border:"1.5px solid #f0c49a", borderRadius:12, padding:"8px 14px", fontSize:13, color:"#b05a20", cursor:"pointer" }}>✏️ Edit</button>
+          <button onClick={()=>setScreen(SCREENS.EDIT_PROFILE)} style={{ background:"#fff5ec", border:"1.5px solid #f0c49a", borderRadius:12, padding:"8px 14px", fontSize:13, color:"#b05a20", cursor:"pointer" }}>?? Edit</button>
         </div>
 
-        <p style={{ color:"#5a3010", lineHeight:1.7, fontSize:15, margin:"12px 0" }}>Coffee enthusiast and movie buff. Looking for someone to share adventures with.</p>
-        <div style={{ display:"flex", flexWrap:"wrap", gap:8, marginBottom:20 }}>
-          {["☕ Coffee","🎬 Movie","🏞️ Hike"].map(a=><span key={a} style={{ background:cfg.tagBg, border:`1.5px solid ${cfg.tagBorder}`, borderRadius:20, padding:"6px 14px", fontSize:14, color:cfg.tagColor }}>{a}</span>)}
-        </div>
+        {/* ? REAL BIO */}
+        <p style={{ color:"#5a3010", lineHeight:1.7, fontSize:15, margin:"12px 0" }}>{displayBio}</p>
+
         <div style={{ background:"#fff", borderRadius:16, padding:16, border:`1px solid ${cfg.cardBorder}`, marginBottom:16 }}>
-          <h4 style={{ color:"#3d1f00", fontFamily:"'Playfair Display',Georgia,serif", margin:"0 0 10px" }}>📊 Stats</h4>
+          <h4 style={{ color:"#3d1f00", fontFamily:"'Playfair Display',Georgia,serif", margin:"0 0 10px" }}>?? Stats</h4>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:12, textAlign:"center" }}>
-            {[["12","Matches"],["5","Dates done"],["4.9⭐","Rating"]].map(([v,l])=>(
-              <div key={l}><div style={{ fontSize:22, fontWeight:700, color:cfg.color, fontFamily:"'Playfair Display',Georgia,serif" }}>{v}</div><div style={{ fontSize:11, color:"#c09070" }}>{l}</div></div>
+            {[["0","Matches"],["0","Dates done"],["?","Rating"]].map(([v,l])=> (
+              <div key={l}>
+                <div style={{ fontSize:22, fontWeight:700, color:cfg.color, fontFamily:"'Playfair Display',Georgia,serif" }}>{v}</div>
+                <div style={{ fontSize:11, color:"#c09070" }}>{l}</div>
+              </div>
             ))}
           </div>
         </div>
+
+        {/* Logged in as */}
+        <div style={{ background:"#f0fff4", border:"1px solid #a5d6a7", borderRadius:12, padding:"10px 14px", fontSize:12, color:"#2e7d32", marginBottom:16 }}>
+          ? Logged in as: <strong>{currentUser?.email}</strong>
+        </div>
+
         <AdBanner idx={2} />
-        <button
-          onClick={handleLogout}
-          style={{
-            width: "100%",
-            padding: 14,
-            marginTop: 20,
-            borderRadius: 12,
-            background: "#fee2e2",
-            color: "#ef4444",
-            border: "none",
-            fontWeight: "bold",
-            cursor: "pointer"
-          }}
-        >
-          Logout from App
-        </button>
       </div>
     </div>
   );
 }
 
-function EditProfileScreen({ setScreen, dateMode, setDateMode }) {
-  const [bio, setBio] = useState("Coffee enthusiast and movie buff.");
-  const [selected, setSelected] = useState(["☕ Coffee","🎬 Movie","🏞️ Hike"]);
-  const [rate, setRate] = useState(400);
+function EditProfileScreen({ setScreen, dateMode, setDateMode, currentUser }) {
+  const [bio, setBio] = useState("");
+  const [selected, setSelected] = useState(["? Coffee","?? Movie","??? Hike"]);
+  const [rate, setRate] = useState(300);
+  const [name, setName] = useState("");
+  const [age, setAge] = useState("");
   const cfg = MODE[dateMode];
+
+  // Load existing profile on open
+  useEffect(() => {
+    if (!currentUser) return;
+    supabase.from('profiles').select('*').eq('id', currentUser.id).single()
+      .then(({ data }) => {
+        if (data) {
+          setBio(data.bio || "");
+          setRate(data.hourly_rate || 300);
+          setName(data.name || "");
+          setAge(data.age || "");
+        }
+      });
+  }, [currentUser]);
+
+  const saveProfile = async () => {
+    if (!currentUser) return;
+    const { error } = await supabase.from('profiles').upsert({
+      id: currentUser.id,
+      name: name,
+      age: parseInt(age) || 25,
+      bio: bio,
+      hourly_rate: rate,
+      mode: dateMode,
+    });
+    if (error) alert("Error saving: " + error.message);
+    else { alert("? Profile saved!"); setScreen(SCREENS.MY_PROFILE); }
+  };
+
   return (
     <div style={{ paddingBottom:80 }}>
       <div style={{ padding:"20px 18px 12px", background:cfg.bg, display:"flex", alignItems:"center", gap:12 }}>
-        <button onClick={()=>setScreen(SCREENS.MY_PROFILE)} style={{ background:"none", border:"none", fontSize:22, cursor:"pointer", color:"#c07040" }}>←</button>
+        <button onClick={()=>setScreen(SCREENS.MY_PROFILE)} style={{ background:"none", border:"none", fontSize:22, cursor:"pointer", color:"#c07040" }}>?</button>
         <h2 style={{ fontFamily:"'Playfair Display',Georgia,serif", fontSize:22, color:"#3d1f00", margin:0 }}>Edit Profile</h2>
       </div>
       <div style={{ padding:"16px 18px" }}>
@@ -575,7 +625,7 @@ function EditProfileScreen({ setScreen, dateMode, setDateMode }) {
         <div style={{ background:"#fff", borderRadius:20, padding:20, border:`1px solid ${cfg.cardBorder}`, marginBottom:14 }}>
           <label style={{ fontSize:13, color:"#a05020", fontWeight:700 }}>Profile Photos</label>
           <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:10, marginTop:10 }}>
-            {["🌟","☕","🏔️"].map((e,i)=>(
+            {["??","?","???"].map((e,i)=>(
               <div key={i} style={{ aspectRatio:"1", background:"linear-gradient(135deg,#f9e4cc,#f0c08a)", borderRadius:14, display:"flex", alignItems:"center", justifyContent:"center", fontSize:36, cursor:"pointer", border:"2px dashed #f0c49a" }}>{e}</div>
             ))}
             <div style={{ aspectRatio:"1", background:"#fff5ec", borderRadius:14, display:"flex", alignItems:"center", justifyContent:"center", fontSize:28, cursor:"pointer", border:"2px dashed #f0c49a", color:"#c09070" }}>+</div>
@@ -583,21 +633,26 @@ function EditProfileScreen({ setScreen, dateMode, setDateMode }) {
         </div>
         {dateMode==="go" && (
           <div style={{ background:"#fff", borderRadius:20, padding:20, border:`1px solid ${cfg.cardBorder}`, marginBottom:14 }}>
-            <label style={{ fontSize:13, color:"#a05020", fontWeight:700 }}>💰 Your Hourly Rate</label>
+            <label style={{ fontSize:13, color:"#a05020", fontWeight:700 }}>?? Your Hourly Rate</label>
             <p style={{ color:"#c09070", fontSize:12, margin:"4px 0 12px" }}>What you charge per hour. Be fair & transparent!</p>
             <div style={{ display:"flex", alignItems:"center", gap:12 }}>
-              <span style={{ fontSize:20, color:"#3d1f00", fontWeight:700 }}>₹</span>
+              <span style={{ fontSize:20, color:"#3d1f00", fontWeight:700 }}>?</span>
               <input type="number" value={rate} onChange={e=>setRate(Number(e.target.value))} min={100} max={5000} step={50} style={{ flex:1, padding:"12px 14px", borderRadius:12, border:`1.5px solid ${cfg.tagBorder}`, fontSize:22, fontWeight:700, color:cfg.color, background:"#fffaf5", outline:"none", textAlign:"center", fontFamily:"'Playfair Display',Georgia,serif" }} />
               <span style={{ fontSize:15, color:"#a08060" }}>/ hr</span>
             </div>
             <div style={{ display:"flex", gap:8, marginTop:12, flexWrap:"wrap" }}>
-              {[150,300,500,750,1000].map(p=><button key={p} onClick={()=>setRate(p)} style={{ padding:"5px 12px", borderRadius:16, border:"1.5px solid", borderColor:rate===p?cfg.color:cfg.tagBorder, background:rate===p?cfg.gradient:cfg.tagBg, color:rate===p?"#fff":cfg.tagColor, fontSize:13, cursor:"pointer" }}>₹{p}</button>)}
+              {[150,300,500,750,1000].map(p=><button key={p} onClick={()=>setRate(p)} style={{ padding:"5px 12px", borderRadius:16, border:"1.5px solid", borderColor:rate===p?cfg.color:cfg.tagBorder, background:rate===p?cfg.gradient:cfg.tagBg, color:rate===p?"#fff":cfg.tagColor, fontSize:13, cursor:"pointer" }}>?{p}</button>)}
             </div>
             <div style={{ marginTop:12, background:cfg.tagBg, borderRadius:10, padding:"8px 12px", fontSize:12, color:"#a05020" }}>
-              💡 2hr date → <strong>₹{rate*2}</strong> · 3hr date → <strong>₹{rate*3}</strong>
+              ?? 2hr date ? <strong>?{rate*2}</strong> ? 3hr date ? <strong>?{rate*3}</strong>
             </div>
           </div>
         )}
+        <div style={{ background:"#fff", borderRadius:20, padding:20, border:`1px solid ${cfg.cardBorder}`, marginBottom:14 }}>
+          <label style={{ fontSize:13, color:"#a05020", fontWeight:700 }}>Your Name & Age</label>
+          <input value={name} onChange={e=>setName(e.target.value)} placeholder="Your name" style={{ width:"100%", marginTop:10, padding:"10px 12px", border:`1.5px solid ${cfg.tagBorder}`, borderRadius:12, fontSize:14, color:"#3d1f00", background:"#fffaf5", outline:"none", boxSizing:"border-box", marginBottom:8 }} />
+          <input value={age} onChange={e=>setAge(e.target.value)} placeholder="Your age" type="number" style={{ width:"100%", padding:"10px 12px", border:`1.5px solid ${cfg.tagBorder}`, borderRadius:12, fontSize:14, color:"#3d1f00", background:"#fffaf5", outline:"none", boxSizing:"border-box" }} />
+        </div>
         <div style={{ background:"#fff", borderRadius:20, padding:20, border:`1px solid ${cfg.cardBorder}`, marginBottom:14 }}>
           <label style={{ fontSize:13, color:"#a05020", fontWeight:700 }}>Your Bio</label>
           <textarea value={bio} onChange={e=>setBio(e.target.value)} rows={4} style={{ width:"100%", marginTop:10, padding:"10px 12px", border:`1.5px solid ${cfg.tagBorder}`, borderRadius:12, fontSize:14, color:"#3d1f00", background:"#fffaf5", resize:"none", outline:"none", boxSizing:"border-box" }} />
@@ -611,7 +666,9 @@ function EditProfileScreen({ setScreen, dateMode, setDateMode }) {
             })}
           </div>
         </div>
-        <button onClick={()=>setScreen(SCREENS.MY_PROFILE)} style={{ width:"100%", padding:14, borderRadius:14, border:"none", background:cfg.gradient, color:"#fff", fontSize:16, fontFamily:"'Playfair Display',Georgia,serif", fontWeight:700, cursor:"pointer" }}>Save Profile ✓</button>
+        <button onClick={saveProfile} style={{ width:"100%", padding:14, borderRadius:14, border:"none", background:cfg.gradient, color:"#fff", fontSize:16, fontFamily:"'Playfair Display',Georgia,serif", fontWeight:700, cursor:"pointer" }}>
+          Save Profile ✓
+        </button>
       </div>
     </div>
   );
@@ -675,7 +732,7 @@ export default function App() {
       {screen===SCREENS.CHAT        && <ChatScreen profile={chatWith||MOCK_PROFILES[0]} setScreen={setScreen} dateMode={dateMode} />}
       {screen===SCREENS.CALENDAR    && <CalendarScreen setScreen={setScreen} dateMode={dateMode} />}
       {screen===SCREENS.MY_PROFILE  && <MyProfileScreen setScreen={setScreen} dateMode={dateMode} setDateMode={setDateMode} handleLogout={handleLogout} currentUser={currentUser} />}
-      {screen===SCREENS.EDIT_PROFILE && <EditProfileScreen setScreen={setScreen} dateMode={dateMode} setDateMode={setDateMode} />}
+      {screen===SCREENS.EDIT_PROFILE && <EditProfileScreen setScreen={setScreen} dateMode={dateMode} setDateMode={setDateMode} currentUser={currentUser} />}
       <BottomNav screen={screen} setScreen={setScreen} dateMode={dateMode} />
     </div>
   );
